@@ -36,6 +36,8 @@ public class ApprovalOTP {
     @Column(name = "expiration")
     private LocalDateTime expiration;
 
+    @Column(name = "invalid_attempts")
+    private int invalidattempts;
 
     @ManyToOne(fetch = FetchType.EAGER) // Use FetchType.LAZY for performance
     @JoinColumn(name = "request_id", referencedColumnName = "id")

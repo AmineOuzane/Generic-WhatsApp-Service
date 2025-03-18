@@ -6,4 +6,5 @@ public interface OtpMessage {
 
     ResponseEntity<String> sendOtpMessage(String recipientNumber);
     ResponseEntity<String> resendOtpMessage(String recipientNumber, String mappingId);
+    ResponseEntity<String> sendTryAgain(String recipientNumber);
 }

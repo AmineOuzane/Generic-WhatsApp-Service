@@ -127,19 +127,34 @@ public class ApprovalController {
 
             ApprovalOTP otpAttempt = optionalOtpAttempt.get();
 
+            if (LocalDateTime.now().isAfter(otpAttempt.getExpiration())) {
+                otpAttempt.setStatus(otpStatut.EXPIRED);
+                approvalOtpRepository.save(otpAttempt);
+                otpMessage.resendOtpMessage(phoneNumber,approvalId);
+                return ResponseEntity.status(HttpStatus.GONE).body(Map.of("error", "OTP has expired"));
+            }
+
             boolean isValid = twilioService.checkVerificationCode(phoneNumber, request.getCode(), otpAttempt.getVerificationSid());
             if (isValid) {
                 otpAttempt.setStatus(otpStatut.APPROVED);
                 approvalOtpRepository.save(otpAttempt);
-
-                whatsAppService.sendMessageWithInteractiveButtons(
-                        approvalRequest
-                );
+                whatsAppService.sendMessageWithInteractiveButtons(approvalRequest);
 
                 return ResponseEntity.ok(Map.of("message", "Verification successful. Approval request sent."));
 
             } else {
-                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "Invalid verification code."));
+                // OTP is invalid, increment invalid attempts
+                otpAttempt.setInvalidattempts(otpAttempt.getInvalidattempts() + 1);
+                approvalOtpRepository.save(otpAttempt); // Save the updated invalid attempt count
+
+                if (otpAttempt.getInvalidattempts() >= 3) {
+                    otpAttempt.setStatus(otpStatut.DENIED);
+                    approvalOtpRepository.save(otpAttempt);
+                    otpMessage.resendOtpMessage(phoneNumber,approvalId);
+                    return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", "You have exceeded the maximum OTP attempts"));
+                }
+
+                return ResponseEntity.badRequest().body(Map.of("error", "Invalid OTP"));
             }
         } catch (Exception e) {
             log.error("An unexpected error occurred", e);

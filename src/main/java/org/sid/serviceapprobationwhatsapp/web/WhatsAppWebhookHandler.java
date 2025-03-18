@@ -136,109 +136,115 @@ public class WhatsAppWebhookHandler {
 
                                             System.out.println("****** Click Button Part ***********");
 
-                                                if (approvalId == null) {
+                                            if (approvalId == null) {
 
-                                                    System.out.println("No request found for original message ID: " + originalMessageId);
-                                                } else {
+                                                System.out.println("No request found for original message ID: " + originalMessageId);
+                                            } else {
 
-                                                    // Approval set to PENDING after sending the message and waiting for manager decision
-                                                    if (buttonPayload.startsWith("APPROVE_")) {
-                                                        approvalService.updateStatus(approvalId, statut.Approuver);
-                                                        System.out.println("La Demande " + approvalId + " a été approuvée !");
-                                                    } else if (buttonPayload.startsWith("REJECT_")) {
-                                                        approvalService.updateStatus(approvalId, statut.Rejeter);
-                                                        System.out.println("La Demande " + approvalId + " a été rejetée !");
-                                                    } else if (buttonPayload.startsWith("ATTENTE_")) {
-                                                        approvalService.updateStatus(approvalId, statut.En_Attente);
-                                                        System.out.println("La Demande " + approvalId + " a été mise en attente !");
-                                                    }
-
+                                                // Approval set to PENDING after sending the message and waiting for manager decision
+                                                if (buttonPayload.startsWith("APPROVE_")) {
+                                                    approvalService.updateStatus(approvalId, statut.Approuver);
+                                                    System.out.println("La Demande " + approvalId + " a été approuvée !");
+                                                } else if (buttonPayload.startsWith("REJECT_")) {
+                                                    approvalService.updateStatus(approvalId, statut.Rejeter);
+                                                    System.out.println("La Demande " + approvalId + " a été rejetée !");
+                                                } else if (buttonPayload.startsWith("ATTENTE_")) {
+                                                    approvalService.updateStatus(approvalId, statut.En_Attente);
+                                                    System.out.println("La Demande " + approvalId + " a été mise en attente !");
                                                 }
+
+                                            }
                                         }
                                     }
                                     if ("text".equals(messageType)) {
-                                        System.out.println("Processing text message");
+                                        logger.info("Processing text message");
 
                                         Object textObj = message.get("text");
-                                        if (textObj instanceof Map) {
-                                            @SuppressWarnings("unchecked")
-                                            Map<String, Object> text = (Map<String, Object>) textObj;
-                                            String messageBody = (String) text.get("body");
-
-                                            if (messageBody != null) {
-                                                messageBody = messageBody.trim();
-                                                String phoneNumber = (String) message.get("from");
-                                                if (!phoneNumber.startsWith("+")) {
-                                                    phoneNumber = "+" + phoneNumber;
-                                                }
-                                                System.out.println("Sender phone number: " + phoneNumber);
-                                                System.out.println("Received OTP: " + messageBody);
-
-                                                Optional<ApprovalOTP> optionalOtpAttempt = approvalOtpRepository
-                                                        .findTopByRecipientNumberAndStatusOrderByCreatedAtDesc(phoneNumber, otpStatut.PENDING);
-                                                if (optionalOtpAttempt.isEmpty()) {
-                                                    System.out.println("OTP invalid");
-                                                    return ResponseEntity.badRequest().body(Map.of("error", "OTP invalid"));
-                                                }
-
-                                                ApprovalOTP otpAttempt = optionalOtpAttempt.get();
-                                                if (otpAttempt.getApprovalRequest() == null) {
-                                                    System.out.println("The Approval Request is missing for this OTP.");
-                                                    return ResponseEntity.badRequest().body(Map.of("error", "Approval Request is missing for OTP"));
-                                                }
-
-                                                ApprovalRequest approvalRequest = otpAttempt.getApprovalRequest();
-
-                                                System.out.println("Processing approval request ID: " + approvalRequest.getId());
-                                                System.out.println("code fixing null point exception");
-
-                                                if (otpAttempt.getApprovalRequest() != null) {
-                                                    String approvalId = otpAttempt.getApprovalRequest().getId();
-                                                    System.out.println("Processing approval request ID: " + approvalId);
-                                                    Optional<ApprovalRequest> approvalRequestOptional = approvalRequestRepository.findById(approvalId);
-                                                    if (approvalRequestOptional.isPresent()) {
-                                                        approvalRequestOptional.get();
-
-                                                        boolean isValid = twilioService.checkVerificationCode(phoneNumber, messageBody, otpAttempt.getVerificationSid());
-                                                        if (isValid) {
-                                                            otpAttempt.setStatus(otpStatut.APPROVED);
-                                                            approvalOtpRepository.save(otpAttempt);
-                                                            System.out.println("OTP success");
-
-                                                            whatsAppService.sendMessageWithInteractiveButtons(
-                                                                   approvalRequest
-                                                            );
-                                                        }
-//                                                        } else {
-//                                                            otpAttempt.setStatus(otpStatut.DENIED);
-//                                                            approvalOtpRepository.save(otpAttempt);
-//
-//                                                            String mappingId = UUID.randomUUID().toString();
-//                                                            OtpResendMapping mapping = OtpResendMapping.builder()
-//                                                                    .mappingId(mappingId)
-//                                                                    .approvalId(String.valueOf(approvalId))
-//                                                                    .recipientNumber(phoneNumber)
-//                                                                    .expiration(LocalDateTime.now().plusMinutes(5))
-//                                                                    .build();
-//                                                            otpResendMappingRepository.save(mapping);
-//
-//                                                            ResponseEntity<String> response = otpMessage.resendOtpMessage(phoneNumber, mappingId);
-//                                                            if (response.getStatusCode().is2xxSuccessful()) {
-//                                                                System.out.println("OTP invalid, check WhatsApp");
-//                                                            } else {
-//                                                                System.out.println("Failed to send WhatsApp message. Status: " + response.getStatusCode());
-//                                                            }
-//                                                        }
-                                                    } else {
-                                                        System.out.println("Invalid approval ID");
-                                                        return ResponseEntity.badRequest().body(Map.of("error", "Invalid approval ID"));
-                                                    }
-                                                } else {
-                                                    System.out.println("The Approval Request Was Null");
-                                                    return ResponseEntity.badRequest().body(Map.of("error", "Approval Request is missing for OTP"));
-                                                }
-                                            }
+                                        if (!(textObj instanceof Map)) {
+                                            return ResponseEntity.badRequest().body(Map.of("error", "Invalid text message format"));
                                         }
+                                        @SuppressWarnings("unchecked")
+                                        Map<String, Object> text = (Map<String, Object>) textObj;
+                                        String messageBody = (String) text.get("body");
+                                        if (messageBody == null || messageBody.trim().isEmpty()) {
+                                            return ResponseEntity.badRequest().body(Map.of("error", "OTP is empty"));
+                                        }
+                                        messageBody = messageBody.trim();
+
+                                        String phoneNumber = (String) message.get("from");
+                                        if (phoneNumber == null) {
+                                            return ResponseEntity.badRequest().body(Map.of("error", "Phone number is missing"));
+                                        }
+                                        if (!phoneNumber.startsWith("+")) {
+                                            phoneNumber = "+" + phoneNumber;
+                                        }
+                                        logger.debug("Sender phone number: {}", phoneNumber);
+                                        logger.debug("Received OTP: {}", messageBody);
+
+                                        Optional<ApprovalOTP> optionalOtpAttempt = approvalOtpRepository
+                                                .findTopByRecipientNumberAndStatusOrderByCreatedAtDesc(phoneNumber, otpStatut.PENDING);
+                                        if (optionalOtpAttempt.isEmpty()) {
+                                            logger.warn("No pending OTP attempt found for phone: {}", phoneNumber);
+                                            return ResponseEntity.badRequest().body(Map.of("error", "OTP invalid"));
+                                        }
+                                        ApprovalOTP otpAttempt = optionalOtpAttempt.get();
+                                        ApprovalRequest approvalRequest = otpAttempt.getApprovalRequest();
+                                        if (approvalRequest == null) {
+                                            logger.warn("Approval Request is missing for OTP attempt for phone: {}", phoneNumber);
+                                            return ResponseEntity.badRequest().body(Map.of("error", "Approval Request is missing for OTP"));
+                                        }
+
+                                        String approvalId = approvalRequest.getId();
+                                        logger.info("Processing approval request ID: {}", approvalId);
+
+                                        // Validate that the phone number is an approver for the request
+                                        if (!approvalRequest.getApprovers().contains(phoneNumber)) {
+                                            logger.warn("Invalid phone number {} for approval request {}", phoneNumber, approvalId);
+                                            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                                                    .body(Map.of("error", "Invalid phone number for this approval request."));
+                                        }
+
+                                        // Check for OTP expiration
+                                        if (LocalDateTime.now().isAfter(otpAttempt.getExpiration())) {
+                                            otpAttempt.setStatus(otpStatut.EXPIRED);
+                                            approvalOtpRepository.save(otpAttempt);
+                                            otpMessage.resendOtpMessage(phoneNumber, approvalId);
+                                            logger.info("OTP expired for approval ID {}", approvalId);
+                                            return ResponseEntity.status(HttpStatus.GONE)
+                                                    .body(Map.of("error", "OTP has expired"));
+                                        }
+
+                                        // Verify the OTP
+                                        boolean isValid = twilioService.checkVerificationCode(phoneNumber, messageBody, otpAttempt.getVerificationSid());
+
+                                        if (isValid) {
+                                            otpAttempt.setStatus(otpStatut.APPROVED);
+                                            approvalOtpRepository.save(otpAttempt);
+                                            logger.info("OTP verified successfully for approval ID {}", approvalId);
+                                            whatsAppService.sendMessageWithInteractiveButtons(approvalRequest);
+                                            return ResponseEntity.ok(Map.of("message", "OTP verified and approval request sent"));
+                                        }
+
+                                        otpAttempt.setInvalidattempts(otpAttempt.getInvalidattempts() + 1);
+                                        approvalOtpRepository.save(otpAttempt);
+
+                                        logger.warn("Invalid OTP attempt {} for approval ID {}", otpAttempt.getInvalidattempts(), approvalId);
+
+                                        //  Wait for the user to enter again (only show "Exceeded attempts" after 3 failures)
+                                        if (otpAttempt.getInvalidattempts() >= 3) {
+                                            otpAttempt.setStatus(otpStatut.DENIED);
+                                            approvalOtpRepository.save(otpAttempt);
+                                            otpMessage.resendOtpMessage(phoneNumber, approvalId);
+                                            logger.error("Exceeded maximum OTP attempts for approval ID {}", approvalId);
+                                            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                                                    .body(Map.of("error", "You have exceeded the maximum OTP attempts"));
+                                        }
+
+                                        // ✅ Just return a response. The system will wait for the user’s next input.
+                                        otpMessage.sendTryAgain(phoneNumber);
+                                        return ResponseEntity.badRequest().body(Map.of("error", "Invalid OTP. Please try again."));
+
+                                    }
                                     }
                                 }
                             }
@@ -246,8 +252,6 @@ public class WhatsAppWebhookHandler {
                     }
                 }
             }
-            return ResponseEntity.ok(Collections.singletonMap("message", "Processed"));
-        }
-        return ResponseEntity.badRequest().body(Collections.singletonMap("error", "No valid message received"));
+        return ResponseEntity.ok(Collections.singletonMap("message", "Processed"));
     }
 }

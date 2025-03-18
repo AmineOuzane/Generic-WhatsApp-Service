@@ -59,6 +59,7 @@ public class ApprovalServiceImpl implements ApprovalService {
                     .verificationSid(verificationSid)
                     .status(otpStatut.PENDING)
                     .createdAt(LocalDateTime.now())
+                    .invalidattempts(0)
                     .expiration(LocalDateTime.now().plusMinutes(5)) // Expires in 5 minutes
                     .build();
 

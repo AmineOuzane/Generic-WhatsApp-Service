@@ -102,4 +102,31 @@ public class OtpMessageImpl implements OtpMessage {
         HttpEntity<String> request = new HttpEntity<>(requestBody.toString(), createHeaders());
         return restTemplate.postForEntity(whatsappApiUrl, request, String.class);
     }
+
+    @Override
+    public ResponseEntity<String> sendTryAgain(String recipientNumber) {
+        System.out.println("Retrieved recipient phone number info: " + recipientNumber);
+
+        // Use PayloadCreatorService
+        JSONObject requestBody = payloadCreatorService.createBaseRequestBody(recipientNumber);
+        JSONObject template = payloadCreatorService.createTemplateObject("retry");
+
+        JSONArray components = new JSONArray();
+
+        // Title Component
+        JSONObject titleComponent = new JSONObject();
+        titleComponent.put("type", "header");
+        components.put(titleComponent);
+
+        // Body Component
+        JSONObject bodyComponent = new JSONObject();
+        bodyComponent.put("type", "body");
+        components.put(bodyComponent);
+
+        template.put("components", components);
+        requestBody.put("template", template);
+
+        HttpEntity<String> request = new HttpEntity<>(requestBody.toString(), createHeaders());
+        return restTemplate.postForEntity(whatsappApiUrl, request, String.class);
+    }
 }
