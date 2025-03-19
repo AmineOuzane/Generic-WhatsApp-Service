@@ -17,6 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 @Service
 @Transactional
@@ -45,34 +46,34 @@ public class ApprovalServiceImpl implements ApprovalService {
 
     @Override
     public void sendOtpAndCreateApprovalOTP(ApprovalRequest approvalRequest, String phoneNumber) {
-        try {
-            // 1. Call Twilio Service to Send OTP
-            String verificationSid = twilioService.sendVerificationCode(phoneNumber);
 
-            // Log to see it is being requested
-            logger.info("Code generated correctly");
+            Optional<ApprovalOTP> existingOtp = approvalOtpRepository
+                    .findTopByRecipientNumberAndStatusOrderByCreatedAtDesc(phoneNumber, otpStatut.PENDING);
 
-            // 2. Create ApprovalOTP entity
-            ApprovalOTP otp = ApprovalOTP.builder()
-                    .approvalRequest(approvalRequest)
-                    .recipientNumber(phoneNumber)
-                    .verificationSid(verificationSid)
-                    .status(otpStatut.PENDING)
-                    .createdAt(LocalDateTime.now())
-                    .invalidattempts(0)
-                    .expiration(LocalDateTime.now().plusMinutes(5)) // Expires in 5 minutes
-                    .build();
+            if (existingOtp.isPresent()) {
+                logger.warn("Pending OTP already exists for phone {}. Not creating a new one.", phoneNumber);
 
-            // 3. Save ApprovalOTP entity to the database
-            approvalOtpRepository.save(otp);
-            //Log correct creation
-            logger.info("Everything created succesfully to approval");
+            }
+            try {
+                String verificationSid = twilioService.sendVerificationCode(phoneNumber);
+                logger.info("OTP sent successfully for phone {}", phoneNumber);
 
-        } catch (Exception e) {
-            // Handle the error appropriately (log, re-throw, etc.)
-            logger.error("Error sending OTP or creating ApprovalOTP record: {}", e.getMessage());
-            throw new RuntimeException("Error sending OTP or creating ApprovalOTP record", e); // Or handle it differently
-        }
+                ApprovalOTP otp = ApprovalOTP.builder()
+                        .approvalRequest(approvalRequest)
+                        .recipientNumber(phoneNumber)
+                        .verificationSid(verificationSid)
+                        .status(otpStatut.PENDING)
+                        .createdAt(LocalDateTime.now())
+                        .invalidattempts(0)
+                        .expiration(LocalDateTime.now().plusMinutes(5))
+                        .build();
+
+                approvalOtpRepository.save(otp);
+                logger.info("ApprovalOTP created successfully for phone {}", phoneNumber);
+            } catch (Exception e) {
+                logger.error("Error sending OTP: {}", e.getMessage());
+                throw new RuntimeException("Error sending OTP", e);
+            }
     }
 
     @Override

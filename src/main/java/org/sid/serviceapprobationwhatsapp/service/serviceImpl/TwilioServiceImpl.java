@@ -6,9 +6,12 @@ import com.twilio.http.TwilioRestClient;
 import com.twilio.rest.verify.v2.service.Verification;
 import com.twilio.rest.verify.v2.service.VerificationCheck;
 import jakarta.annotation.PostConstruct;
+import org.sid.serviceapprobationwhatsapp.enums.otpStatut;
+import org.sid.serviceapprobationwhatsapp.repositories.ApprovalOtpRepository;
 import org.sid.serviceapprobationwhatsapp.service.TwilioService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -27,7 +30,13 @@ public class TwilioServiceImpl implements TwilioService {
     @Value("${twilio.verify.service.sid}")
     private String verifyServiceSid;
 
+    private final ApprovalOtpRepository approvalOtpRepository;
+
     Logger logger = LoggerFactory.getLogger(TwilioServiceImpl.class);
+
+    public TwilioServiceImpl(ApprovalOtpRepository approvalOtpRepository) {
+        this.approvalOtpRepository = approvalOtpRepository;
+    }
 
     // Initialize Twilio de manière global pour la class
     @PostConstruct // Use @PostConstruct for initialization
@@ -47,12 +56,18 @@ public class TwilioServiceImpl implements TwilioService {
         if (phoneNumber == null || phoneNumber.trim().isEmpty() || !phoneNumber.startsWith("+")) {
             throw new IllegalArgumentException("Invalid phone number: " + phoneNumber);
         }
+
+        // Expire any previous pending OTPs before sending a new one
+        approvalOtpRepository.updateStatusByPhoneNumber(phoneNumber, otpStatut.PENDING, otpStatut.EXPIRED);
+
+
         try {
             Verification verification = Verification.creator(
                             verifyServiceSid,
                             phoneNumber,
                             "sms")            // Verification channel (SMS)
                     .create();
+
 
             System.out.println("Verification SID: " + verification.getSid()); // Log the SID
             return verification.getSid(); // Track and refer to that particular verification
@@ -84,7 +99,9 @@ public class TwilioServiceImpl implements TwilioService {
                     .setCode(code)
                     .create();
 
-            System.out.println("Verification check status: " + verificationCheck.getStatus());
+            logger.info("Twilio Verification Response: SID={}, Status={}",
+                    verificationCheck.getSid(), verificationCheck.getStatus());
+
             return "approved".equals(verificationCheck.getStatus());
 
         } catch (ApiException e) {

@@ -43,6 +43,10 @@ public class ApprovalOTP {
     @JoinColumn(name = "request_id", referencedColumnName = "id")
     private ApprovalRequest approvalRequest;
 
+    // New field for idempotency to mark if an OTP attempt is being processed.
+    @Column(name = "processing", nullable = false)
+    private boolean processing;
+
 //    @Column(name = "whatsapp_message_id")
 //    private String whatsappMessageId; // Optional
 }

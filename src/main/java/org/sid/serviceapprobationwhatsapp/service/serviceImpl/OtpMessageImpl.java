@@ -73,7 +73,7 @@ public class OtpMessageImpl implements OtpMessage {
 
         // Use PayloadCreatorService
         JSONObject requestBody = payloadCreatorService.createBaseRequestBody(recipientNumber);
-        JSONObject template = payloadCreatorService.createTemplateObject("renvoieotp");
+        JSONObject template = payloadCreatorService.createTemplateObject("resendit");
 
         JSONArray components = new JSONArray();
 
@@ -87,15 +87,18 @@ public class OtpMessageImpl implements OtpMessage {
         bodyComponent.put("type", "body");
         components.put(bodyComponent);
 
-        JSONArray buttons = new JSONArray();
-        buttons.put(payloadCreatorService.createButton("button", "RESENDOTP_" + mappingId, "RenvoyerOtp"));
-
-        // Add buttons to a buttons component, and add THAT to the components array.
-        JSONObject buttonsComponent = new JSONObject();
-        buttonsComponent.put("type", "buttons");
-        buttonsComponent.put("buttons", buttons);
-        components.put(buttonsComponent);
-
+        // "Resend OTP" button component
+        JSONObject resendButtonComponent = new JSONObject();
+        resendButtonComponent.put("type", "button");
+        resendButtonComponent.put("sub_type", "quick_reply");
+        resendButtonComponent.put("index", "0");
+        JSONArray resendParameters = new JSONArray();
+        JSONObject resendPayload = new JSONObject();
+        resendPayload.put("type", "payload");
+        resendPayload.put("payload", "RESEND_" + mappingId);
+        resendParameters.put(resendPayload);
+        resendButtonComponent.put("parameters", resendParameters);
+        components.put(resendButtonComponent);
         template.put("components", components);
         requestBody.put("template", template);
 

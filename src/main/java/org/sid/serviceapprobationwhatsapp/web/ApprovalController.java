@@ -161,4 +161,9 @@ public class ApprovalController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", "An unexpected error occurred."));
         }
     }
+
+    @PostMapping("/resendotp/{phoneNumber}/{messageId}")
+    public ResponseEntity<String> resendOtp(@PathVariable String phoneNumber, @PathVariable String messageId) {
+        return otpMessage.resendOtpMessage(phoneNumber, messageId);
+    }
 }
